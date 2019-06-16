@@ -1,0 +1,134 @@
+def win_check(X0,winner):
+    if np.sum(np.sum(X0[:,:,0],axis =1)//3) ==1:
+       winner +=1
+    elif np.sum(np.sum(X0[:,:,0],axis =0)//3) ==1:
+        winner +=1
+    elif np.trace(X0[:,:,0])//3 ==1:
+        winner +=1
+
+    elif np.trace(np.flip(X0[:,:,0],axis=0))//3 ==1:
+
+        winner +=1
+
+    elif np.sum(np.sum(X0[:,:,1],axis =1)//3) ==1:
+
+        winner -=1
+    elif np.sum(np.sum(X0[:,:,1],axis =0)//3) ==1:
+
+        winner -=1
+    elif np.trace(X0[:,:,1])//3 ==1:
+
+        winner -=1
+    elif np.trace(np.flip(X0[:,:,1],axis=0))//3 ==1:
+
+        winner -=1
+    elif np.sum(X0)==9:
+
+        winner +=.5
+    else:
+        winner =0
+
+    return winner
+    
+
+def update_N(row,path,pos):
+    if row.path == path:
+        row.N += pos 
+    else:
+        pass
+    return row
+    
+def update_W(row,path,pos,v):
+    if row.path == path:
+        row.W += pos*v
+    else:
+        pass
+
+    return row
+    
+def rollout(X,mdl,num=30):
+    X_temp = copy.deepcopy(X)
+    
+    path_t = [0]*9
+
+    dF = pd.DataFrame({'path':[copy.deepcopy(path_t)],'N': [np.zeros((1,9),dtype = int)], 'W': [np.zeros((1,9))],'player':0,'roll':[1]})
+    for i in arange(num):
+
+        dF['roll'] = 0
+        dF['roll'].iloc[0]=1
+        X_temp = copy.deepcopy(X)
+        p,v = mdl.predict((X_temp[:,:,0]-X_temp[:,:,1]).reshape((1,3,3,1)))
+        winner =0
+        test = True
+        while test:
+    
+
+            a = dF[dF.apply(lambda row: row['path'] ==path_t,axis = 1)]
+            P = (p+10**-8)*(1-(X_temp[:,:,0]+X_temp[:,:,1])).ravel()/np.sum((p+10**-8)*(1-(X_temp[:,:,0]+X_temp[:,:,1])).ravel())
+
+            u_t = P*(a.apply(lambda row: np.sum(np.sum(row['N']))/(1+row['N'] ),axis = 1).iloc[0])
+            #u_t = P*(a.apply(lambda row: np.sqrt(np.sum(np.sum(row['N'])))/(1+row['N'] ),axis = 1).iloc[0])
+            v_t = np.divide(a['W'].iloc[0],a['N'].iloc[0],out=np.zeros_like(a['W'].iloc[0]), where=a['N'].iloc[0]!=0)
+            
+            l_t = 3*u_t+v_t*(-1)**(np.sum(X_temp[:,:,0]-X_temp[:,:,1]))
+            l_t[:,((1-(X_temp[:,:,0]+X_temp[:,:,1])).ravel()==0).tolist()] = 'nan'
+            #u_t[:,((1-(X_temp[:,:,0]+X_temp[:,:,1])).ravel()==0).tolist()] = 'nan'
+
+            temp = np.nanargmax(l_t)
+            
+            pos = np.zeros((1,9),dtype='int')
+            pos[0,temp] = 1
+            X_temp[:,:,np.sum(X_temp[:,:,0]-X_temp[:,:,1])%2] += pos.reshape((3,3))
+
+    
+            dF.apply(update_N,args =(path_t,pos),axis=1)
+    
+            winner = win_check(X_temp,winner)
+
+            if winner==0:
+                p,v = mdl.predict((X_temp[:,:,0]-X_temp[:,:,1]).reshape((1,3,3,1)))
+            elif abs(winner)==1:
+                v = winner
+                test = False
+
+            else:
+                v=0
+                test = False
+
+
+            path_t[np.sum(X_temp)-1] = temp+1
+    
+            if dF.apply(lambda row: row['path'] ==path_t,axis = 1).sum()==1:
+
+                pass
+            elif abs(winner)==1:
+                for j in range(np.sum(X_temp)-1,np.sum(X)-1,-1):
+                    path_T = copy.deepcopy(path_t)
+                    path_T[j]=0
+                    Pos = np.zeros((1,9),dtype='int')
+                    Pos[0,path_t[j]-1] = 1
+                    dF.apply(update_W,args =(path_T,Pos,v),axis=1)
+                path_t = [0]*9
+            else:
+                df0 = pd.DataFrame({'path':[path_t],'N': [np.zeros((1,9),dtype = int)], 'W': [np.zeros((1,9))],'player': [np.sum(X_temp[:,:,0]-X_temp[:,:,1])%2],'roll':[0]})
+                test = False
+                dF = pd.concat([dF,df0],ignore_index=True)
+                path_T = copy.deepcopy(path_t)
+                for j in range(np.sum(X_temp)-1,np.sum(X)-1,-1):
+                    path_T[j]=0
+                    Pos = np.zeros((1,9),dtype='int')
+                    Pos[0,path_t[j]-1] = 1
+
+
+                    dF.apply(update_W,args =(path_T,Pos,v) ,axis=1)
+    
+    
+                X_Temp = X_temp
+                X_temp = copy.deepcopy(X)
+                path_t = [0]*9 
+    return dF
+    
+# X=np.zeros((3,3,2),dtype = 'int')
+# X[1,1,0]=1
+# 
+# df=rollout(X,model)
