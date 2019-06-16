@@ -1,0 +1,76 @@
+from keras.layers import Input, Dense, Activation, Conv2D, Flatten,Concatenate, Dropout
+from keras.models import Model
+from keras.models import Sequential
+import copy
+import numpy as np
+import pandas as pd
+from scipy import signal
+
+
+board = Input(shape = (3,3,1),name = 'board')
+c = Conv2D(10, kernel_size=(2,2), strides=(1, 1),activation='tanh')(board)
+c = Conv2D(40, (2, 2), activation='tanh')(c)
+F = Flatten()(c)
+F = Dense(9, activation='relu')(F)
+F = Dense(9, activation='relu')(F)
+F = Dense(9, activation='relu')(F)
+x = Dense(9, activation='softmax')(F)
+y = Dense(1, activation='tanh')(F)
+
+
+model = Model(inputs =[board],outputs = [x,y])
+
+model.compile(optimizer='rmsprop', loss=['binary_crossentropy','mean_squared_error'],loss_weights=[1,10])
+
+
+
+b_size = 25
+for n0 in range(15):
+    # if n0%20==0:
+    #     print(n0)
+    # else:
+    #     pass
+    print(n0)
+    X_train1 = np.zeros((b_size*10,3,3,1),dtype = int)
+    X_train2 = np.zeros((b_size*10,3,3,1),dtype = int)
+    X_train3 = np.zeros((b_size*10,3,3,1),dtype = int)
+    X_train4 = np.zeros((b_size*10,3,3,1),dtype = int)
+    y_results = np.zeros((1,b_size*10))
+    y_moves = np.zeros((b_size*10,9))
+    l = 0
+
+
+    
+    
+    X=np.zeros((3,3,2),dtype = 'int')
+    
+    X_game = np.zeros((10,3,3,2),dtype = int)
+    X_move = np.zeros((9,10))
+    result = np.zeros((1,10))
+    
+    
+    turn = -1
+    winner = 0
+    while winner == 0:
+        X_temp = copy.deepcopy(X)
+        turn+=1
+        df = rollout(X,model,num=50)
+          
+        X_game[turn,:,:,:] = X
+        X_move[:,turn] = df.N[0]/np.sum(df.N[0])
+
+        result[:,turn] = np.sum(df.W[0])/np.sum(df.N[0])
+        pos = np.zeros((1,9),dtype='int')
+        #temp = dF.N[0].argmax()
+        temp = np.random.choice(9, 1, p=(df.N[0]/np.sum(df.N[0])).ravel())[0]
+        pos[0,temp] +=1
+    
+        X[:,:,np.sum(X[:,:,0]-X[:,:,1])%2] += pos.reshape((3,3))
+        winner = win_check(X,winner)
+        
+    X_train1[l:l+turn+2,:,:,:] = (X_game[0:turn+2,:,:,0]-X_game[0:turn+2,:,:,1]).reshape((turn+2,3,3,1))
+    y_results[:,l:l+turn+2] = result[:,0:turn+2]
+    y_moves[l:l+turn+2,:] = X_move[:,0:turn+2].T
+    l = l+turn+2
+    
+    model.fit(X_train1[0:l,:,:,:].reshape((l,3,3,1)), [y_moves[0:l,:].reshape((l,9)), y_results.T[0:l,:].reshape((l,1))],epochs=200)
