@@ -1,4 +1,6 @@
 def win_check(X0,winner):
+
+    #checks to see if current game state is a win, draw or keep playing
     if np.sum(np.sum(X0[:,:,0],axis =1)//3) ==1:
        winner +=1
     elif np.sum(np.sum(X0[:,:,0],axis =0)//3) ==1:
@@ -32,6 +34,7 @@ def win_check(X0,winner):
     
 
 def update_N(row,path,pos):
+    #  updating number of visits
     if row.path == path:
         row.N += pos 
     else:
@@ -39,6 +42,7 @@ def update_N(row,path,pos):
     return row
     
 def update_W(row,path,pos,v):
+    #updating valuation
     if row.path == path:
         row.W += pos*v
     else:
@@ -47,6 +51,8 @@ def update_W(row,path,pos,v):
     return row
     
 def rollout(X,mdl,num=30):
+
+    # performs rollout from current position
     X_temp = copy.deepcopy(X)
     
     path_t = [0]*9
@@ -67,12 +73,10 @@ def rollout(X,mdl,num=30):
             P = (p+10**-8)*(1-(X_temp[:,:,0]+X_temp[:,:,1])).ravel()/np.sum((p+10**-8)*(1-(X_temp[:,:,0]+X_temp[:,:,1])).ravel())
 
             u_t = P*(a.apply(lambda row: np.sum(np.sum(row['N']))/(1+row['N'] ),axis = 1).iloc[0])
-            #u_t = P*(a.apply(lambda row: np.sqrt(np.sum(np.sum(row['N'])))/(1+row['N'] ),axis = 1).iloc[0])
             v_t = np.divide(a['W'].iloc[0],a['N'].iloc[0],out=np.zeros_like(a['W'].iloc[0]), where=a['N'].iloc[0]!=0)
             
-            l_t = 3*u_t+v_t*(-1)**(np.sum(X_temp[:,:,0]-X_temp[:,:,1]))
+            l_t = u_t+v_t*(-1)**(np.sum(X_temp[:,:,0]-X_temp[:,:,1]))   # the -1^n is due to the game evaluation always being from player 1 point of view
             l_t[:,((1-(X_temp[:,:,0]+X_temp[:,:,1])).ravel()==0).tolist()] = 'nan'
-            #u_t[:,((1-(X_temp[:,:,0]+X_temp[:,:,1])).ravel()==0).tolist()] = 'nan'
 
             temp = np.nanargmax(l_t)
             
@@ -127,8 +131,3 @@ def rollout(X,mdl,num=30):
                 X_temp = copy.deepcopy(X)
                 path_t = [0]*9 
     return dF
-    
-# X=np.zeros((3,3,2),dtype = 'int')
-# X[1,1,0]=1
-# 
-# df=rollout(X,model)
