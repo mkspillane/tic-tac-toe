@@ -1,4 +1,4 @@
-# this is identical to alpha_ttt except it uses rollout2 for improved accuracy
+# this is identical to alpha_ttt except it uses rollout2 for improved accuracy and uses 4 of the 8 symmetries of tic tac toe
 
 from keras.layers import Input, Dense, Activation, Conv2D, Flatten,Concatenate, Dropout
 from keras.models import Model
