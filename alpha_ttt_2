@@ -1,0 +1,108 @@
+# this is identical to alpha_ttt except it uses rollout2 for improved accuracy
+
+from keras.layers import Input, Dense, Activation, Conv2D, Flatten,Concatenate, Dropout
+from keras.models import Model
+from keras.models import Sequential
+import copy
+import numpy as np
+import pandas as pd
+from scipy import signal
+
+
+board = Input(shape = (3,3,1),name = 'board')
+# c = Conv2D(10, kernel_size=(2,2), strides=(1, 1),activation='tanh')(board)
+# c = Conv2D(40, (2, 2), activation='tanh')(c)
+F = Flatten()(board)
+x = Dense(20, activation='relu')(F)
+y = Dense(10, activation='relu')(F)
+x = Dense(20, activation='relu')(x)
+y = Dense(10, activation='relu')(y)
+x = Dense(20, activation='relu')(x)
+y = Dense(10, activation='relu')(y)
+x = Dense(20, activation='relu')(x)
+y = Dense(10, activation='relu')(y)
+y = Dense(10, activation='relu')(y)
+x = Dense(9, activation='softmax')(x)
+y = Dense(1, activation='tanh')(y)
+
+
+model = Model(inputs =[board],outputs = [x,y])
+
+model.compile(optimizer='Nadam', loss=['binary_crossentropy','mean_squared_error'],loss_weights=[1,10])
+
+
+
+b_size = 2
+for n0 in range(10):
+    # if n0%20==0:
+    #     print(n0)
+    # else:
+    #     pass
+    print(n0)
+    X_train1 = np.zeros((b_size*10,3,3,1),dtype = int)
+    X_train2 = np.zeros((b_size*10,3,3,1),dtype = int)
+    X_train3 = np.zeros((b_size*10,3,3,1),dtype = int)
+    X_train4 = np.zeros((b_size*10,3,3,1),dtype = int)
+    y_results = np.zeros((1,b_size*10))
+    y_moves = np.zeros((b_size*10,9))
+    l = 0
+
+    for n1 in range(b_size):
+        df = pd.DataFrame({'path':[[0]*9],'N': [np.zeros((1,9),dtype = int)], 'W': [np.zeros((1,9))],'player':0,'roll':[1]})
+        
+        X=np.zeros((3,3,2),dtype = 'int')
+        
+        X_game = np.zeros((10,3,3,2),dtype = int)
+        X_move = np.zeros((9,10))
+        result = np.zeros((1,10))
+        
+        
+        turn = -1
+        winner = 0
+        while winner == 0:
+            X_temp = copy.deepcopy(X)
+            turn+=1
+            dF = rollout2(X,model,df,num=50)
+            
+            X_game[turn,:,:,:] = X
+            dfN = dF[dF.apply(lambda row: list(row.path)==[0]*9,axis=1)].N.iloc[0]
+            dfW = dF[dF.apply(lambda row: list(row.path)==[0]*9,axis=1)].W.iloc[0]
+            X_move[:,turn] = dfN/np.sum(dfN)
+    
+            result[:,turn] = np.sum(dfW)/np.sum(dfN)
+            pos = np.zeros((1,9),dtype='int')
+            
+            temp = np.random.choice(9, 1, p=(dfN/np.sum(dfN)).ravel())[0]
+            pos[0,temp] +=1
+        
+            X[:,:,np.sum(X[:,:,0]-X[:,:,1])%2] += pos.reshape((3,3))
+            winner = win_check(X,winner)
+            if winner == 0:
+                pp = np.zeros((9),dtype='int')
+                pp[np.sum(X)-1] = temp+1
+                
+                dF.path = dF.path - pp
+                
+                df = dF[dF.apply(lambda row: row.path[np.sum(X)-1]==0,axis=1)]
+            else:
+                pass
+    
+        
+        X_train1[l:l+turn+2,:,:,:] = (X_game[0:turn+2,:,:,0]-X_game[0:turn+2,:,:,1]).reshape((turn+2,3,3,1))
+        X_train2[l:l+turn+2,:,:,:] = (np.flip(X_game[0:turn+2,:,:,0]-X_game[0:turn+2,:,:,1],axis = 1)).reshape((turn+2,3,3,1))
+        X_train3[l:l+turn+2,:,:,:] = (np.flip(X_game[0:turn+2,:,:,0]-X_game[0:turn+2,:,:,1],axis = 2)).reshape((turn+2,3,3,1))
+        X_train4[l:l+turn+2,:,:,:] = (np.flip(np.flip(X_game[0:turn+2,:,:,0]-X_game[0:turn+2,:,:,1],axis = 2),axis=1)).reshape((turn+2,3,3,1))
+        y_results[:,l:l+turn+2] = result[:,0:turn+2]
+        y_moves[l:l+turn+2,:] = X_move[:,0:turn+2].T
+        l = l+turn+2
+    
+    X_train = np.concatenate((X_train1[0:l,:].reshape((l,3,3,1)),X_train2[0:l,:].reshape((l,3,3,1)),X_train3[0:l,:].reshape((l,3,3,1)),X_train4[0:l,:].reshape((l,3,3,1))))
+    y_moves1 = y_moves[0:l,:]
+    y_moves2 = np.flip(y_moves[0:l,:].reshape(l,3,3),axis=1).reshape((l,9))
+    y_moves3 = np.flip(y_moves[0:l,:].reshape(l,3,3),axis=2).reshape((l,9))
+    y_moves4 = np.flip(np.flip(y_moves[0:l,:].reshape(l,3,3),axis=2),axis=1).reshape((l,9))
+    Y_moves = np.concatenate((y_moves1,y_moves2,y_moves3,y_moves4))
+    Y_results = np.concatenate((y_results[:,0:l].T,y_results[:,0:l].T,y_results[:,0:l].T,y_results[:,0:l].T))
+    
+    #model.fit(X_train1[0:l,:,:,:].reshape((l,3,3,1)), [y_moves[0:l,:].reshape((l,9)), y_results.T[0:l,:].reshape((l,1))],epochs=200)
+    model.fit(X_train, [Y_moves, Y_results],epochs=300)
