@@ -1,7 +1,10 @@
 # tic-tac-toe
 
 Using reiforcment learning a feed forward network is trained to play tic-tac-toe.  After ~40 games the policy network
-without rollouts wins 90% of the time as player 1 and 50% of the time as player 2. 
+without rollouts wins 90% of the time.
+
+![alt text](https://github.com/mkspillane/tic-tac-toe/edit/master/results.png)
+
 
 The files used to do this are:
 'defs' which contains the functions that perform the rollouts for each move in training.  There are 2 rollouts
