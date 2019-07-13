@@ -7,9 +7,7 @@ without rollouts wins 90% of the time.
 
 
 The files used to do this are:
-'defs' which contains the functions that perform the rollouts for each move in training.  There are 2 rollouts
-one which erases information from the previous move and another which stores previous rollouts for use in the next turn.
+'defs_ttt.ipynb' which contains the functions that perform the rollouts for each move in training.  There are 2 rollouts
+one which erases information from the previous move and another which stores previous rollouts for use in the next turn.  It also has a function to test the current model against a random player
 
-'alpha_ttt' which implements training using the first rollout method
-
-'alpha_ttt_2' which implements training using the second rollout method
+'ttt_final.ipynb' which implements training using the second rollout method.  It records the results against random play for after each training.  It augments the data with the full dihedral symmetry group for tic-tac-toe.
