@@ -3,7 +3,7 @@
 Using reiforcment learning a feed forward network is trained to play tic-tac-toe.  After ~40 games the policy network
 without rollouts wins 90% of the time.
 
-![alt text](https://github.com/mkspillane/tic-tac-toe/edit/master/results.png)
+![alt text](https://github.com/mkspillane/tic-tac-toe/blob/master/results.png)
 
 
 The files used to do this are:
